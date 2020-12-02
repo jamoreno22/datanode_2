@@ -7,8 +7,10 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
 	"os"
 	"strconv"
+	"time"
 
 	data "github.com/jamoreno22/lab2_dist/datanode_2/pkg/proto"
 	"google.golang.org/grpc"
@@ -19,7 +21,16 @@ var bookName string
 func main() {
 	var conn *grpc.ClientConn
 
-	conn, err := grpc.Dial("10.10.28.18:9000", grpc.WithInsecure())
+	var ips = []string{"10.10.28.17:9000", "10.10.28.18:9000", "10.10.28.19:9000"}
+	var gIps []string
+
+	for _, ip := range ips {
+		if pingDataNode(ip) {
+			gIps = append(gIps, ip)
+		}
+	}
+
+	conn, err := grpc.Dial(gIps[0], grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("did not connect: %s", err)
 	}
@@ -56,29 +67,53 @@ func main() {
 		//Centralizado
 		case '0':
 			dc.DistributionType(context.Background(), &data.Message{Text: "0"})
-			fileToBeChunked := "books/Mujercitas-Alcott_Louisa_May.pdf"
-			bookName = "Mujercitas-Alcott_Louisa_May.pdf"
+			fmt.Println("Ingrese directorio del libro a cargar (incluída la extensión):")
+			r2 := bufio.NewReader(os.Stdin)
+			c2, _, err2 := r2.ReadRune()
+			if err2 != nil {
+				fmt.Println(err2)
+			}
+			fileToBeChunked := string(c2)
+			fmt.Println("Ingrese nombre del libro a cargar (sin extensión):")
+			r3 := bufio.NewReader(os.Stdin)
+			c3, _, err3 := r3.ReadRune()
+			if err3 != nil {
+				fmt.Println(err3)
+			}
+			bookName = string(c3)
 			runUploadBook(dc, fileToBeChunked)
 			break
 		//Distribuido
 		case '1':
 			dc.DistributionType(context.Background(), &data.Message{Text: "1"})
-			fileToBeChunked := "books/Mujercitas-Alcott_Louisa_May.pdf"
-			bookName = "Mujercitas-Alcott_Louisa_May.pdf"
+			fmt.Println("Ingrese directorio del libro a cargar (incluída la extensión):")
+			r2 := bufio.NewReader(os.Stdin)
+			c2, _, err2 := r2.ReadRune()
+			if err2 != nil {
+				fmt.Println(err2)
+			}
+			fileToBeChunked := string(c2)
+			fmt.Println("Ingrese nombre del libro a cargar (sin extensión):")
+			r3 := bufio.NewReader(os.Stdin)
+			c3, _, err3 := r3.ReadRune()
+			if err3 != nil {
+				fmt.Println(err3)
+			}
+			bookName = string(c3)
 			runUploadBook(dc, fileToBeChunked)
 			break
 		}
 		break
 	//Download
 	case '1':
-		fmt.Println("Ingrese nombre del libro a descargar: ")
-		//r := bufio.NewReader(os.Stdin)
-		//c, _, err := r.ReadRune()
+		fmt.Println("Ingrese nombre del libro a descargar (sin extensión): ")
+		r := bufio.NewReader(os.Stdin)
+		c, _, err := r.ReadRune()
 
 		if err != nil {
 			fmt.Println(err)
 		}
-		runDownloadBook(dc, "books/Mujercitas-Alcott_Louisa_May.pdf")
+		runDownloadBook(dc, "books/"+string(c)+".pdf")
 		fmt.Println("Descargado")
 		break
 	}
@@ -261,4 +296,13 @@ func rebuildBook(chunks []data.Chunk) error {
 	file.Close()
 
 	return nil
+}
+
+func pingDataNode(ip string) bool {
+	timeOut := time.Duration(10 * time.Second)
+	_, err := net.DialTimeout("tcp", ip, timeOut)
+	if err != nil {
+		return false
+	}
+	return true
 }
